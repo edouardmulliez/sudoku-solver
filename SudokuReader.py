@@ -9,8 +9,11 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-#import os
+
 #os.chdir("C:\Users\EM\git-projects\sudoku-solver")
+import os
+os.chdir("/Users/em/Documents/git-projects/sudoku-solver")
+
 
 from perspectiveTransform import four_point_transform
 from perfect import solve_sudoku
@@ -46,6 +49,7 @@ def read_solve_save(in_file, out_file):
 #        print("Could not find grid borders on image.")
 #        return;
     cv2.imwrite(out_file, img)
+    return status
     
 
 
