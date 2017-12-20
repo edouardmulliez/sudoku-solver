@@ -1,5 +1,5 @@
 '''
-Created on 7 mai 2017
+Class to solve a Sudoku.
 
 @author: EM
 '''
@@ -27,18 +27,23 @@ class Sudoku(object):
         N = Sudoku.n ** 2 
         
         # initialize boolean values
-        self.is_in_row = np.zeros(shape = (N, N), dtype = bool) # 1st index corresponds to row in grid, 2nd index to value
-        self.is_in_col = np.zeros(shape = (N, N), dtype = bool) # 1st index corresponds to col in grid, 2nd index to value
-        self.is_in_square = np.zeros(shape = (Sudoku.n, Sudoku.n, N), dtype = bool)
+        self.is_in_row = np.zeros((N,N), dtype = int) # 1st index corresponds to row in grid, 2nd index to value
+        self.is_in_col = np.zeros((N,N), dtype = int) # 1st index corresponds to col in grid, 2nd index to value
+        self.is_in_square = np.zeros((Sudoku.n,Sudoku.n,N), dtype = int)
         
         for i in range(0, 9):
             for j in range(0,9):
                 k = self.grid[i,j]
                 if (k != 0):
-                    self.is_in_row[i, k-1] = True
-                    self.is_in_col[j, k-1] = True
-                    
-                    self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), int(k-1)] = True
+                    self.is_in_row[i, k-1] += 1
+                    self.is_in_col[j, k-1] += 1
+                    self.is_in_square[i/3, j/3, k-1] += 1
+					
+		# deal with infeasible cases
+		self.infeasible = False
+		if (self.is_in_row>1).any() or (self.is_in_col>1).any() or (
+				self.is_in_square>1).any():
+			self.infeasible = True
     
     
     def create_position_list(self):
@@ -48,21 +53,21 @@ class Sudoku(object):
         
         N = Sudoku.n ** 2
         # create a vector with the number of possibilities for each position
-        possibility_nb = np.zeros(shape = (N**2))
+        possibility_nb = np.zeros(N**2)
         for idx in range(0, N**2):
-            i = int(math.floor(idx/N))
+            i = idx/N
             j = idx % N
             if self.grid[i,j] != 0:
                 # A number is already written in the grid
                 possibility_nb[idx] = -1
             else:
-                possible_nb = np.ones(shape = (N))
+                possible_nb = np.ones(N)
                 for k in range(0, N):
                     if self.is_in_row[i, k] :
                         possible_nb[k] = 0
                     if self.is_in_col[j, k] :
                         possible_nb[k] = 0
-                    if self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k]:
+                    if self.is_in_square[i/3, j/3, k]:
                         possible_nb[k] = 0
                 possibility_nb[idx] = np.sum(possible_nb)
                 
@@ -75,15 +80,15 @@ class Sudoku(object):
         return position_array
         
     def is_valid(self, position_list):    
-        # return true if the grid is valid
-        # also update grid with the solution
+        # Returns true if the grid is valid (considered valid is has at least one
+		 # solution).
+        # Also update grid with the solution
         N = Sudoku.n**2
         
-        if len(position_list) == 0 :
-            # perhaps check if grid is indeed correct... to be added?
+        if len(position_list) == 0:
             return True
         
-        i = int(math.floor(position_list[0]/N))
+        i = position_list[0]/N
         j = position_list[0] % N
         # remove 1st element from position_list
         position_list = position_list[1:]
@@ -91,11 +96,11 @@ class Sudoku(object):
         for k in range(0, N):
             if (not self.is_in_row[i,k] 
                 and not self.is_in_col[j,k] 
-                and not self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k]):
+                and not self.is_in_square[i/3, j/3, k]):
                 # update booleans with k
-                self.is_in_row[i,k] = True
-                self.is_in_col[j,k] = True
-                self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k] = True
+                self.is_in_row[i,k] = 1
+                self.is_in_col[j,k] = 1
+                self.is_in_square[i/3, j/3, k] = 1
                 if (self.is_valid(position_list)):
                     # update grid value
                     self.grid[i,j] = k+1
@@ -103,7 +108,7 @@ class Sudoku(object):
                 else:
                     self.is_in_row[i,k] = False
                     self.is_in_col[j,k] = False
-                    self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k] = False
+                    self.is_in_square[i/3, j/3, k] = False
         return False
     
     def get_all_solutions_inner(self, position_list):
@@ -126,9 +131,9 @@ class Sudoku(object):
                 and not self.is_in_col[j,k] 
                 and not self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k]):
                 # update booleans with k
-                self.is_in_row[i,k] = True
-                self.is_in_col[j,k] = True
-                self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k] = True
+                self.is_in_row[i,k] = 1
+                self.is_in_col[j,k] = 1
+                self.is_in_square[int(math.floor(i/3)), int(math.floor(j/3)), k] = 1
                 self.grid[i,j] = k+1
                 temp = self.get_all_solutions_inner(position_list)
                 solution_nb += temp[0]
@@ -140,17 +145,21 @@ class Sudoku(object):
         return (solution_nb, grid_list)
     
     def solve(self):
-        # Solve the sudoku (returns true if at least a solution exists and update self.grid with that solution
-        
-        # put grid back to its initial value
-        self.grid = copy.deepcopy(self.initial_grid)
-        # compute ordered positions (solver will iterate on these positions)
-        position_list = self.create_position_list()
-        return self.is_valid(position_list)
+		"""
+		Solves the sudoku (returns true if at least a solution exists and update self.grid with that solution
+		"""    
+		if self.infeasible:
+			return False
+		# put grid back to its initial value
+		self.grid = copy.deepcopy(self.initial_grid)
+		# compute ordered positions (solver will iterate on these positions)
+		position_list = self.create_position_list()
+		return self.is_valid(position_list)
     
     def get_all_solutions(self):
         # Returns (solution_nb, grid_list)
-            
+        if self.infeasible:
+			return (0, [])
         # put grid to its initial value
         self.grid = copy.deepcopy(self.initial_grid)
         # compute ordered positions (solver will iterate on these positions)
@@ -188,6 +197,12 @@ class Sudoku(object):
         df.to_csv(file, sep = ";", header = False)
 
 def solve_sudoku(grid):
+	"""
+	Solves a Sudoku grid. Returns None if no solution is found. Else return the 
+	solved sudoku as np array.
+	"""
 	mySudoku = Sudoku(grid)
-	mySudoku.solve()
+	valid = mySudoku.solve()
+	if not valid:
+		return(None)
 	return(mySudoku.grid)
